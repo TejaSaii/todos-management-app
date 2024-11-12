@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const { SECRET, auth } = require("./auth");
 const bcrypt = require("bcryptjs");
+const {z} = require("zod");
 
 app.use(express.json());
 
@@ -13,13 +14,31 @@ mongoose.connect(
 );
 
 app.post("/signup", async (req, res) => {
+  const requiredBody = z.object({
+    email: z.string().min(5).max(100).email(),
+    password: z.string()
+      .min(8)
+      .regex(/[A-Z]/, "Password must include atleast one uppercase letter")
+      .regex(/[a-z]/, "Password must include atleast one lowercase letter")
+      .regex(/[0-9]/, "Password must inlucde atleast one numeric value")
+      .regex(/[!@#$%^&*-+=]/, "Password must include atleast one special character"),
+    name: z.string().min(3).max(100)
+  });
+
+  const {success, error} = requiredBody.safeParse(req.body);
+  if(!success){
+    return res.status(400).json({
+      error: error
+    });
+  }
+
   const email = req.body.email;
   const user = await UserModel.findOne({
     email
   });
   if(user){
     return res.status(400).json({
-      message: "Username already exists"
+      message: "Email already exists"
     })
   }
   const hashedPassword = await bcrypt.hash(req.body.password, 10);
